@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.astro/
+# Full-resolution originals stay local; the site uses the resized exports in photos/
+data/

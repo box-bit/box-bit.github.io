@@ -1,0 +1,179 @@
+---
+import { Image } from 'astro:assets';
+import Base from '../layouts/Base.astro';
+import { SITE, url } from '../config';
+import { galleries, picture } from '../data/galleries';
+
+const hero = picture('gran-sasso.jpg');
+---
+
+<Base overlayHeader>
+  <section class="hero">
+    <Image
+      src={hero}
+      alt="Black and white view of the Gran Sasso under dramatic clouds"
+      width={2560}
+      widths={[960, 1600, 2560]}
+      sizes="100vw"
+      loading="eager"
+      fetchpriority="high"
+      quality={80}
+    />
+    <div class="hero-text">
+      <h1>{SITE.name}</h1>
+      <p>{SITE.description}</p>
+    </div>
+    <a class="scroll-cue" href="#galleries" aria-label="Scroll to galleries">↓</a>
+  </section>
+
+  <section id="galleries" class="galleries">
+    <h2>Galleries</h2>
+    <div class="cards">
+      {
+        galleries.map((g) => (
+          <a class="card reveal" href={url(`/galleries/${g.slug}/`)}>
+            <div class="card-img">
+              <Image
+                src={picture(g.cover)}
+                alt=""
+                width={1300}
+                widths={[600, 900, 1300]}
+                sizes="(min-width: 900px) 50vw, 100vw"
+                quality={78}
+              />
+            </div>
+            <div class="card-meta">
+              <h3>{g.title}</h3>
+              <span>
+                {g.subtitle} · {g.photos.length} photos
+              </span>
+            </div>
+          </a>
+        ))
+      }
+    </div>
+  </section>
+</Base>
+
+<style>
+  .hero {
+    position: relative;
+    height: 100svh;
+    min-height: 480px;
+    overflow: hidden;
+  }
+  .hero img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    animation: settle 2.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(transparent 55%, rgba(0, 0, 0, 0.75));
+  }
+  .hero-text {
+    position: absolute;
+    z-index: 1;
+    left: var(--gutter);
+    right: var(--gutter);
+    bottom: clamp(56px, 12vh, 120px);
+  }
+  h1 {
+    margin: 0;
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: clamp(2.6rem, 8vw, 6.5rem);
+    line-height: 0.95;
+    letter-spacing: -0.01em;
+  }
+  .hero-text p {
+    margin: 16px 0 0;
+    color: #d6d3cc;
+    font-size: 0.8rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+  }
+  .scroll-cue {
+    position: absolute;
+    z-index: 1;
+    right: var(--gutter);
+    bottom: clamp(56px, 12vh, 120px);
+    font-size: 1.4rem;
+    animation: bob 2.2s ease-in-out infinite;
+  }
+  @keyframes settle {
+    from {
+      transform: scale(1.06);
+      opacity: 0;
+    }
+  }
+  @keyframes bob {
+    50% {
+      transform: translateY(8px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero img,
+    .scroll-cue {
+      animation: none;
+    }
+  }
+
+  .galleries {
+    padding: clamp(64px, 12vh, 140px) var(--gutter) 0;
+  }
+  h2 {
+    margin: 0 0 40px;
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+    gap: clamp(24px, 4vw, 56px) clamp(16px, 3vw, 40px);
+  }
+  .card-img {
+    aspect-ratio: 3 / 2;
+    overflow: hidden;
+    background: #0d0d0d;
+  }
+  .card-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition:
+      transform 1.2s cubic-bezier(0.2, 0.7, 0.2, 1),
+      filter 0.6s;
+    filter: brightness(0.88);
+  }
+  .card:hover .card-img img {
+    transform: scale(1.04);
+    filter: brightness(1);
+  }
+  .card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 16px;
+    padding-top: 16px;
+  }
+  h3 {
+    margin: 0;
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: 2rem;
+  }
+  .card-meta span {
+    color: var(--muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+</style>

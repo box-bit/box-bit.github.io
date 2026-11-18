@@ -1,0 +1,298 @@
+---
+import { Image, getImage } from 'astro:assets';
+import Base from '../../layouts/Base.astro';
+import { url } from '../../config';
+import { galleries, picture, type Gallery } from '../../data/galleries';
+
+export function getStaticPaths() {
+  return galleries.map((gallery) => ({ params: { slug: gallery.slug }, props: { gallery } }));
+}
+
+const { gallery } = Astro.props as { gallery: Gallery };
+
+const photos = await Promise.all(
+  gallery.photos.map(async (p) => {
+    const img = picture(p.file);
+    // Large version used by the full-screen viewer.
+    const full = await getImage({ src: img, width: 3000, widths: [1280, 2048, 3000], quality: 82 });
+    return { ...p, img, ratio: img.width / img.height, full };
+  }),
+);
+
+const idx = galleries.findIndex((g) => g.slug === gallery.slug);
+const next = galleries[(idx + 1) % galleries.length];
+---
+
+<Base title={gallery.title} description={`${gallery.title}: ${gallery.subtitle}`}>
+  <header class="intro">
+    <p class="eyebrow">{gallery.date}</p>
+    <h1>{gallery.title}</h1>
+    <p class="sub">{gallery.subtitle}</p>
+  </header>
+
+  <section class="stream" aria-label={`${gallery.title} photos`}>
+    {
+      photos.map((p, i) => (
+        <a
+          class="tile reveal"
+          href={p.full.src}
+          style={`--r:${p.ratio.toFixed(4)}`}
+          data-index={i}
+          data-srcset={p.full.srcSet.attribute}
+          data-caption={p.caption ?? ''}
+        >
+          <Image
+            src={p.img}
+            alt={p.alt}
+            width={1800}
+            widths={[480, 800, 1200, 1800]}
+            sizes="(min-width: 1100px) 50vw, 100vw"
+            quality={80}
+            loading={i < 2 ? 'eager' : 'lazy'}
+          />
+        </a>
+      ))
+    }
+  </section>
+
+  <nav class="next" aria-label="Next gallery">
+    <span>Next gallery</span>
+    <a href={url(`/galleries/${next.slug}/`)}>{next.title} →</a>
+  </nav>
+
+  <dialog class="lightbox" aria-label="Photo viewer">
+    <figure>
+      <img alt="" sizes="100vw" />
+      <figcaption></figcaption>
+    </figure>
+    <button class="lb-close" aria-label="Close">✕</button>
+    <button class="lb-prev" aria-label="Previous photo">‹</button>
+    <button class="lb-next" aria-label="Next photo">›</button>
+    <span class="lb-count"></span>
+  </dialog>
+</Base>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>('.lightbox')!;
+  const img = dialog.querySelector('img')!;
+  const cap = dialog.querySelector('figcaption')!;
+  const count = dialog.querySelector<HTMLElement>('.lb-count')!;
+  const tiles = [...document.querySelectorAll<HTMLAnchorElement>('.tile')];
+  let current = 0;
+
+  function show(i: number) {
+    current = (i + tiles.length) % tiles.length;
+    const t = tiles[current];
+    const thumb = t.querySelector('img')!;
+    img.classList.remove('loaded');
+    img.srcset = t.dataset.srcset ?? '';
+    img.src = t.href;
+    img.alt = thumb.alt;
+    cap.textContent = t.dataset.caption ?? '';
+    count.textContent = `${current + 1} / ${tiles.length}`;
+    // Preload neighbours so arrows feel instant.
+    [current - 1, current + 1].forEach((n) => {
+      const nt = tiles[(n + tiles.length) % tiles.length];
+      const pre = new Image();
+      pre.sizes = '100vw';
+      pre.srcset = nt.dataset.srcset ?? '';
+    });
+  }
+
+  img.addEventListener('load', () => img.classList.add('loaded'));
+
+  tiles.forEach((t, i) =>
+    t.addEventListener('click', (e) => {
+      e.preventDefault();
+      show(i);
+      dialog.showModal();
+    }),
+  );
+
+  dialog.querySelector('.lb-close')!.addEventListener('click', () => dialog.close());
+  dialog.querySelector('.lb-prev')!.addEventListener('click', () => show(current - 1));
+  dialog.querySelector('.lb-next')!.addEventListener('click', () => show(current + 1));
+  dialog.addEventListener('click', (e) => {
+    if (e.target === dialog || (e.target as HTMLElement).tagName === 'FIGURE') dialog.close();
+  });
+  dialog.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight') show(current + 1);
+    if (e.key === 'ArrowLeft') show(current - 1);
+  });
+
+  // Swipe on touch screens.
+  let x0: number | null = null;
+  dialog.addEventListener('touchstart', (e) => (x0 = e.touches[0].clientX), { passive: true });
+  dialog.addEventListener('touchend', (e) => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0;
+    if (Math.abs(dx) > 50) show(current + (dx < 0 ? 1 : -1));
+    x0 = null;
+  });
+</script>
+
+<style>
+  .intro {
+    padding: clamp(48px, 12vh, 140px) var(--gutter) clamp(40px, 8vh, 96px);
+    text-align: center;
+  }
+  .eyebrow,
+  .sub {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 14px 0 18px;
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: clamp(3rem, 10vw, 7.5rem);
+    line-height: 0.95;
+  }
+  .sub {
+    color: #c9c6bf;
+    letter-spacing: 0.18em;
+  }
+
+  /* Justified rows: every photo in a row gets the same height, widths follow aspect ratio. */
+  .stream {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(8px, 1.2vw, 16px);
+    padding: 0 var(--gutter);
+  }
+  .stream::after {
+    content: '';
+    flex-grow: 999;
+  }
+  .tile {
+    flex-grow: var(--r);
+    flex-basis: calc(var(--r) * clamp(240px, 28vw, 420px));
+    cursor: zoom-in;
+    background: #0d0d0d;
+    overflow: hidden;
+  }
+  .tile img {
+    width: 100%;
+    transition: filter 0.5s;
+  }
+  .tile:hover img {
+    filter: brightness(1.06);
+  }
+
+  .next {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding-top: clamp(80px, 14vh, 160px);
+  }
+  .next span {
+    color: var(--muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+  .next a {
+    font-family: var(--serif);
+    font-size: clamp(2rem, 5vw, 3.4rem);
+    font-weight: 300;
+  }
+  .next a:hover {
+    font-style: italic;
+  }
+
+  /* Full-screen viewer */
+  .lightbox {
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: rgba(0, 0, 0, 0.97);
+    color: var(--fg);
+  }
+  .lightbox::backdrop {
+    background: #000;
+  }
+  .lightbox figure {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: clamp(12px, 4vh, 48px) clamp(12px, 6vw, 96px);
+  }
+  .lightbox img {
+    max-width: 100%;
+    max-height: 100%;
+    min-height: 0;
+    object-fit: contain;
+    opacity: 0.6;
+    transition: opacity 0.35s ease;
+  }
+  .lightbox img.loaded {
+    opacity: 1;
+  }
+  .lightbox figcaption:empty {
+    display: none;
+  }
+  .lightbox figcaption {
+    color: #c9c6bf;
+    font-size: 0.85rem;
+    letter-spacing: 0.06em;
+  }
+  .lightbox button {
+    position: absolute;
+    background: none;
+    border: 0;
+    color: #bbb;
+    font: inherit;
+    cursor: pointer;
+    padding: 12px 16px;
+    transition: color 0.2s;
+  }
+  .lightbox button:hover,
+  .lightbox button:focus-visible {
+    color: #fff;
+  }
+  .lb-close {
+    top: 8px;
+    right: 8px;
+    font-size: 1.3rem;
+  }
+  .lb-prev,
+  .lb-next {
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 3rem;
+    font-family: var(--serif);
+  }
+  .lb-prev {
+    left: 4px;
+  }
+  .lb-next {
+    right: 4px;
+  }
+  .lb-count {
+    position: absolute;
+    top: 22px;
+    left: 24px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.24em;
+  }
+  @media (max-width: 640px) {
+    .lb-prev,
+    .lb-next {
+      display: none; /* swipe instead */
+    }
+  }
+</style>

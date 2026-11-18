@@ -1,0 +1,213 @@
+---
+import { SITE, url } from '../config';
+import { galleries } from '../data/galleries';
+
+interface Props {
+  title?: string;
+  description?: string;
+  overlayHeader?: boolean;
+}
+const { title, description = SITE.description, overlayHeader = false } = Astro.props;
+const pageTitle = title ? `${title} · ${SITE.name}` : `${SITE.name} · ${SITE.tagline}`;
+const current = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/svg+xml" href={url('/favicon.svg')} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Jost:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <title>{pageTitle}</title>
+    <script is:inline>document.documentElement.classList.add('js');</script>
+  </head>
+  <body>
+    <header class:list={['site-header', { overlay: overlayHeader }]}>
+      <a class="brand" href={url('/')}>
+        <span class="brand-name">{SITE.name}</span>
+        <span class="brand-tag">{SITE.tagline}</span>
+      </a>
+      <nav aria-label="Galleries">
+        {
+          galleries.map((g) => {
+            const href = url(`/galleries/${g.slug}/`);
+            return (
+              <a href={href} aria-current={current === href ? 'page' : undefined}>
+                {g.title}
+              </a>
+            );
+          })
+        }
+      </nav>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <span>© {new Date().getFullYear()} {SITE.name}</span>
+      <a href="#top" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">Back to top ↑</a>
+    </footer>
+
+    <script>
+      // Fade photos in as they scroll into view.
+      const els = document.querySelectorAll('.reveal');
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const e of entries) {
+              if (e.isIntersecting) {
+                e.target.classList.add('in');
+                io.unobserve(e.target);
+              }
+            }
+          },
+          { rootMargin: '0px 0px -8% 0px' },
+        );
+        els.forEach((el) => io.observe(el));
+      } else {
+        els.forEach((el) => el.classList.add('in'));
+      }
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --bg: #000;
+    --fg: #f2f0ec;
+    --muted: #8a8780;
+    --line: #222;
+    --serif: 'Cormorant Garamond', Georgia, serif;
+    --sans: 'Jost', system-ui, sans-serif;
+    --gutter: clamp(16px, 4vw, 56px);
+    color-scheme: dark;
+  }
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  html {
+    background: var(--bg);
+    scroll-behavior: smooth;
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-weight: 300;
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .reveal {
+    transition:
+      opacity 1.1s ease,
+      transform 1.1s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .js .reveal:not(.in) {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    .reveal {
+      transition: opacity 0.4s ease;
+    }
+    .js .reveal:not(.in) {
+      transform: none;
+    }
+  }
+</style>
+
+<style>
+  .site-header {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px 32px;
+    padding: 28px var(--gutter);
+  }
+  .site-header.overlay {
+    position: absolute;
+    inset: 0 0 auto 0;
+    background: linear-gradient(rgba(0, 0, 0, 0.55), transparent);
+    padding-bottom: 64px;
+  }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .brand-name {
+    font-family: var(--serif);
+    font-size: 1.6rem;
+    letter-spacing: 0.02em;
+  }
+  .brand-tag,
+  nav a {
+    font-size: 0.72rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+  }
+  .brand-tag {
+    color: var(--muted);
+  }
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+  }
+  nav a {
+    color: #c9c6bf;
+    padding-bottom: 3px;
+    border-bottom: 1px solid transparent;
+    transition:
+      color 0.2s,
+      border-color 0.2s;
+  }
+  nav a:hover,
+  nav a[aria-current='page'] {
+    color: var(--fg);
+    border-color: currentColor;
+  }
+  .site-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 48px var(--gutter);
+    margin-top: 96px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .site-footer a:hover {
+    color: var(--fg);
+  }
+</style>
